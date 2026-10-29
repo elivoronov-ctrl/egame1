@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bubble Bounce</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--pink:#ff8fc7;--pink-d:#e9579f;--lav:#cdb4ff;--mint:#a8ecd6;--ink:#7a3b63}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 20% 20%,#ffe3f1,#ffd1e8 45%,#e9d8ff);
+    font-family:Fredoka,"Comic Sans MS","Trebuchet MS",system-ui,sans-serif;color:var(--ink);padding:16px}
+  #wrap{position:relative;width:100%;max-width:960px;aspect-ratio:2/1;border-radius:26px;overflow:hidden;
+    box-shadow:0 14px 40px rgba(233,87,159,.3);border:5px solid #fff;background:#ffe3f1}
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:pointer}
+  .screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,238,247,.78);backdrop-filter:blur(3px)}
+  .hidden{display:none}
+  .card{background:#fff;border-radius:22px;padding:18px 26px;max-width:580px;width:92%;text-align:center;
+    box-shadow:0 8px 24px rgba(233,87,159,.25);max-height:94%;overflow:auto}
+  h1{margin:0;color:var(--pink-d);font-size:clamp(24px,5vw,42px);letter-spacing:1px}
+  h2{margin:4px 0;color:var(--pink-d);font-size:clamp(20px,4vw,32px)}
+  .sub{margin:2px 0 8px;font-size:15px;opacity:.85}
+  .rules{text-align:left;font-size:clamp(12px,1.7vw,15px);line-height:1.5;margin:6px 0;padding-left:22px}
+  .rules li::marker{content:"♥  ";color:var(--pink)}
+  kbd{background:#ffe3f1;border-radius:6px;padding:0 7px;border:1px solid #ffb6d9;font-family:inherit}
+  button{font:inherit;font-weight:600;background:var(--pink);color:#fff;border:none;border-radius:999px;
+    padding:9px 24px;font-size:17px;cursor:pointer;box-shadow:0 4px 0 var(--pink-d);margin:6px}
+  button:active{transform:translateY(3px);box-shadow:0 1px 0 var(--pink-d)}
+  button.alt{background:var(--lav);box-shadow:0 4px 0 #a48ae6}
+  .levels{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:8px 0}
+  .levels button{margin:0;padding:6px 0;font-size:16px}
+  .levels button.locked{background:#f1e9ee;color:#c9b7c2;box-shadow:0 4px 0 #e2d4dc;cursor:not-allowed}
+  .big{font-size:42px;margin:0}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="menu" class="screen">
+    <div class="card">
+      <h1>🎀 Bubble Bounce 🎀</h1>
+      <p class="sub">Help Bubbles the bouncy ball hop home to Rainbow Castle!</p>
+      <ul class="rules">
+        <li>Press <kbd>Space</kbd> (or tap / click) to jump. <b>Hold it longer to jump higher!</b></li>
+        <li>Press <kbd>Space</kbd> again in the air for a <b>double jump</b>.</li>
+        <li>Dodge cupcakes, candy spikes, gift boxes, buzzy bees, grumpy clouds and ghosts.</li>
+        <li>You get <b>3 hearts</b> each level. Bump into something and you lose one.</li>
+        <li>Grab ⭐ stars for points. Reach the 🚩 finish flag to clear the level.</li>
+        <li>10 levels, each one faster with new obstacles. Press <kbd>P</kbd> to pause.</li>
+      </ul>
+      <div class="levels" id="levels"></div>
+      <button id="playBtn">Play ▶</button>
+    </div>
+  </div>
+
+  <div id="complete" class="screen hidden">
+    <div class="card">
+      <p class="big">🌸</p>
+      <h2 id="cTitle">Level complete!</h2>
+      <p class="sub" id="cText"></p>
+      <button id="nextBtn">Next level ▶</button>
+      <button class="alt" data-menu>Menu</button>
+    </div>
+  </div>
+
+  <div id="over" class="screen hidden">
+    <div class="card">
+      <p class="big">💔</p>
+      <h2>Oopsie!</h2>
+      <p class="sub" id="oText">Out of hearts. Give it another bounce!</p>
+      <button id="retryBtn">Try again ↻</button>
+      <button class="alt" data-menu>Menu</button>
+    </div>
+  </div>
+
+  <div id="win" class="screen hidden">
+    <div class="card">
+      <p class="big">👑🌈</p>
+      <h2>You made it to Rainbow Castle!</h2>
+      <p class="sub" id="wText">All 10 levels cleared. Bubbles is so proud of you!</p>
+      <button class="alt" data-menu>Back to menu</button>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="card">
+      <h2>Paused 💤</h2>
+      <button id="resumeBtn">Resume</button>
+      <button class="alt" data-menu>Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('game'), ctx = cv.getContext('2d');
+const W = 960, H = 480, G = 410, R = 22;
+cv.width = W; cv.height = H;
+
+const NAMES = ['Cupcake Meadow','Candy Lane','Gift Garden','Buzzy Bee Field','Cotton Cloud Sky',
+  'Tower Town','Spooky Sweet Woods','Bubblegum Bridge','Starry Sprinkle Night','Rainbow Castle'];
+const ALL = ['cupcake','candy','gift','bee','cloud','tower','ghost'];
+const POOLS = [
+  ['cupcake'], ['cupcake','candy'], ['cupcake','candy','gift'], ['cupcake','candy','gift','bee'],
+  ['candy','gift','bee','cloud'], ['cupcake','gift','bee','cloud','tower'],
+  ['candy','gift','bee','cloud','tower','ghost'], ALL, ALL, ALL];
+const SKIES = [
+  ['#ffd6ec','#fff3f9'],['#ffcfe6','#fff0f7'],['#f9d4ff','#fff1fb'],['#ffe1c9','#fff6ec'],
+  ['#d7e8ff','#fff0f8'],['#ffc8dd','#ffe9f2'],['#b9a3e8','#f2c8e8'],['#ffc2e0','#ffeaf4'],
+  ['#8f7cd6','#e3b6e6'],['#ffd1ec','#d9f3ff']];
+
+function levelCfg(n){
+  const i = n - 1;
+  return {
+    speed: 4.6 + i * 0.6,
+    gapMin: Math.max(230, 540 - i * 34),
+    gapMax: Math.max(400, 820 - i * 45),
+    length: 3000 + i * 450,
+    pool: POOLS[i],
+    combo: i >= 7 ? (i - 6) * 0.15 : (i >= 4 ? 0.08 : 0)
+  };
+}
+
+let state = 'menu', level = 1, cfg, player, obs, stars, parts, dist, nextSpawn, hearts, score, inv, shake = 0, t = 0;
+let unlocked = 1;
+try { unlocked = Math.max(1, Math.min(10, parseInt(localStorage.getItem('bb_unlocked')) || 1)); } catch (e) {}
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+function resetLevel(){
+  cfg = levelCfg(level);
+  player = { x: 170, y: G - R, vy: 0, ground: true, jumps: 0, hold: 0, holding: false, sq: 1 };
+  obs = []; stars = []; parts = [];
+  dist = 0; nextSpawn = 650; hearts = 3; score = 0; inv = 0; shake = 0;
+}
+
+/* ---------- input ---------- */
+function press(){
+  if (state !== 'play') return;
+  const p = player;
+  if (p.ground){
+    p.vy = -9.2; p.ground = false; p.jumps = 1; p.hold = 0; p.holding = true; puff(p.x, G, '#fff', 6);
+  } else if (p.jumps < 2){
+    p.vy = -8.6; p.jumps = 2; p.hold = 0; p.holding = true; puff(p.x, p.y + R, '#ffc1e0', 8);
+  }
+}
+function release(){ if (player) player.holding = false; }
+
+addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp'){
+    e.preventDefault();
+    if (e.repeat) return;
+    if (state === 'play') press();
+    else if (state === 'complete') nextLevel();
+    else if (state === 'over') startLevel(level);
+  } else if (e.code === 'KeyP' || e.code === 'Escape'){
+    if (state === 'play'){ state = 'pause'; show('pause'); }
+    else if (state === 'pause'){ resume(); }
+  }
+});
+addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'ArrowUp') release(); });
+cv.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
+addEventListener('pointerup', release);
+
+/* ---------- screens ---------- */
+const screens = ['menu','complete','over','win','pause'];
+function show(id){ screens.forEach(s => document.getElementById(s).classList.toggle('hidden', s !== id)); }
+function buildLevels(){
+  const box = document.getElementById('levels'); box.innerHTML = '';
+  for (let i = 1; i <= 10; i++){
+    const b = document.createElement('button');
+    b.textContent = i <= unlocked ? i : '🔒';
+    b.title = NAMES[i-1];
+    if (i > unlocked) b.className = 'locked';
+    else b.onclick = () => startLevel(i);
+    box.appendChild(b);
+  }
+}
+function startLevel(n){ level = n; resetLevel(); state = 'play'; show(null); }
+function nextLevel(){ if (level < 10) startLevel(level + 1); }
+function resume(){ state = 'play'; show(null); }
+function toMenu(){ state = 'menu'; level = 1; resetLevel(); buildLevels(); show('menu'); }
+document.getElementById('playBtn').onclick = () => startLevel(unlocked);
+document.getElementById('nextBtn').onclick = nextLevel;
+document.getElementById('retryBtn').onclick = () => startLevel(level);
+document.getElementById('resumeBtn').onclick = resume;
+document.querySelectorAll('[data-menu]').forEach(b => b.onclick = toMenu);
+
+function levelDone(){
+  if (level >= 10){
+    state = 'win';
+    document.getElementById('wText').textContent = `All 10 levels cleared with ${score} points on the last one. Bubbles is so proud of you!`;
+    show('win');
+  } else {
+    state = 'complete';
+    unlocked = Math.max(unlocked, level + 1);
+    try { localStorage.setItem('bb_unlocked', unlocked); } catch (e) {}
+    document.getElementById('cTitle').textContent = `${NAMES[level-1]} cleared!`;
+    document.getElementById('cText').textContent =
+      `⭐ ${score} points · ${'♥'.repeat(hearts)} left. Next up: Level ${level+1}, ${NAMES[level]}.`;
+    show('complete');
+  }
+  burstConfetti();
+}
+
+/* ---------- spawning ---------- */
+function addObs(type, x){
+  const o = { type, x, phase: Math.random() * 6.28 };
+  switch (type){
+    case 'cupcake': o.w = 42; o.h = 46; break;
+    case 'candy':   o.w = 50; o.h = 40; break;
+    case 'gift':    o.w = 50; o.h = 58; break;
+    case 'tower':   o.w = 50; o.h = 100; break;
+    case 'bee':     o.r = 16; o.base = G - 48; o.fly = true; o.vx = 1.2; break;
+    case 'cloud':   o.r = 26; o.base = G - 165; o.fly = true; break;
+    case 'ghost':   o.r = 18; o.base = G - 85; o.amp = 45; o.fly = true; o.vx = 0.8; break;
+  }
+  if (!o.fly) o.y = G - o.h; else o.cy = o.base;
+  obs.push(o);
+}
+function spawn(){
+  const type = pick(cfg.pool);
+  addObs(type, W + 40);
+  if (Math.random() < cfg.combo) addObs(pick(['cupcake','candy']), W + 40 + (type === 'tower' || type === 'gift' ? 90 : 80));
+  if (Math.random() < 0.55) stars.push({ x: W + 40 + rand(140, 240), y: G - rand(60, 170), spin: Math.random() * 6 });
+}
+
+/* ---------- particles ---------- */
+function puff(x, y, col, n){
+  for (let i = 0; i < n; i++) parts.push({ x, y, vx: rand(-2, 2), vy: rand(-2.5, -0.5), life: 30, col, size: rand(3, 6), kind: 'dot' });
+}
+function hearts_(x, y){
+  for (let i = 0; i < 8; i++) parts.push({ x, y, vx: rand(-3, 3), vy: rand(-4, -1), life: 45, col: '#ff6fae', size: rand(7, 11), kind: 'heart' });
+}
+function sparkle(x, y){
+  for (let i = 0; i < 10; i++) parts.push({ x, y, vx: rand(-3, 3), vy: rand(-3, 3), life: 30, col: pick(['#ffe27a','#fff','#ffc1e0']), size: rand(3, 6), kind: 'star' });
+}
+function burstConfetti(){
+  for (let i = 0; i < 70; i++) parts.push({ x: rand(0, W), y: rand(-60, 0), vx: rand(-1, 1), vy: rand(1, 4), life: 140,
+    col: pick(['#ff8fc7','#cdb4ff','#a8ecd6','#ffe27a','#9fd8ff']), size: rand(4, 8), kind: 'dot' });
+}
+
+/* ---------- collision ---------- */
+function circRect(cx, cy, r, x, y, w, h){
+  const nx = Math.max(x, Math.min(cx, x + w)), ny = Math.max(y, Math.min(cy, y + h));
+  return (cx - nx) ** 2 + (cy - ny) ** 2 < r * r;
+}
+function hits(o){
+  const p = player;
+  if (o.fly) return Math.hypot(p.x - o.x, p.y - o.cy) < R + o.r - 6;
+  if (o.type === 'candy') return circRect(p.x, p.y, R - 3, o.x + 10, o.y + 10, o.w - 20, o.h - 10);
+  return circRect(p.x, p.y, R - 3, o.x + 4, o.y + 4, o.w - 8, o.h - 4);
+}
+
+/* ---------- update ---------- */
+function update(f){
+  t += f;
+  const p = player;
+  if (p.holding && p.vy < 0 && p.hold < 16){ p.vy -= 0.48 * f; p.hold += f; }
+  p.vy += 0.55 * f;
+  p.y += p.vy * f;
+  if (p.y >= G - R){
+    if (!p.ground){ p.sq = 0.7; puff(p.x, G, '#fff', 5); }
+    p.y = G - R; p.vy = 0; p.ground = true; p.jumps = 0;
+  }
+  p.sq += (1 - p.sq) * 0.2 * f;
+
+  dist += cfg.speed * f;
+  if (dist >= nextSpawn && cfg.length - dist > 750){ spawn(); nextSpawn = dist + rand(cfg.gapMin, cfg.gapMax); }
+
+  for (const o of obs){
+    o.x -= (cfg.speed + (o.vx || 0)) * f;
+    if (o.type === 'bee') o.cy = o.base + Math.sin(t * 0.15 + o.phase) * 6;
+    if (o.type === 'cloud') o.cy = o.base + Math.sin(t * 0.05 + o.phase) * 5;
+    if (o.type === 'ghost') o.cy = o.base + Math.sin(t * 0.06 + o.phase) * o.amp;
+    if (inv <= 0 && hits(o)){
+      hearts--; inv = 90; shake = 12; hearts_(p.x, p.y);
+      if (hearts <= 0){
+        state = 'over';
+        document.getElementById('oText').textContent = `Out of hearts on Level ${level}. Give it another bounce!`;
+        show('over'); return;
+      }
+    }
+  }
+  obs = obs.filter(o => o.x > -90);
+
+  for (const s of stars){
+    s.x -= cfg.speed * f; s.spin += 0.08 * f;
+    if (!s.got && Math.hypot(p.x - s.x, p.y - s.y) < R + 14){ s.got = true; score += 10; sparkle(s.x, s.y); }
+  }
+  stars = stars.filter(s => s.x > -30 && !s.got);
+
+  if (inv > 0) inv -= f;
+  if (shake > 0) shake -= f;
+  if (dist >= cfg.length) levelDone();
+}
+function updateParts(f){
+  for (const q of parts){ q.x += q.vx * f; q.y += q.vy * f; q.vy += (q.kind === 'heart' ? 0.12 : 0.08) * f; q.life -= f; }
+  parts = parts.filter(q => q.life > 0);
+}
+
+/* ---------- drawing helpers ---------- */
+function circle(x, y, r, col){ ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+function rrect(x, y, w, h, r, col){ ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); }
+function heartPath(x, y, s){
+  ctx.beginPath();
+  ctx.moveTo(x, y + s * 0.3);
+  ctx.bezierCurveTo(x, y, x - s * 0.5, y, x - s * 0.5, y + s * 0.3);
+  ctx.bezierCurveTo(x - s * 0.5, y + s * 0.6, x, y + s * 0.8, x, y + s);
+  ctx.bezierCurveTo(x, y + s * 0.8, x + s * 0.5, y + s * 0.6, x + s * 0.5, y + s * 0.3);
+  ctx.bezierCurveTo(x + s * 0.5, y, x, y, x, y + s * 0.3);
+  ctx.fill();
+}
+function starPath(x, y, r, rot){
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++){
+    const a = rot + i * Math.PI / 5 - Math.PI / 2, rr = i % 2 ? r * 0.45 : r;
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath(); ctx.fill();
+}
+function face(x, y, s, mood){
+  const blink = (Math.floor(t) % 200) < 6;
+  ctx.fillStyle = '#5a2a48';
+  if (blink){ ctx.fillRect(x - 7 * s, y - 2 * s, 5 * s, 1.6 * s); ctx.fillRect(x + 2 * s, y - 2 * s, 5 * s, 1.6 * s); }
+  else { circle(x - 5 * s, y - 2 * s, 2.4 * s, '#5a2a48'); circle(x + 5 * s, y - 2 * s, 2.4 * s, '#5a2a48');
+    circle(x - 4.3 * s, y - 2.8 * s, 0.9 * s, '#fff'); circle(x + 5.7 * s, y - 2.8 * s, 0.9 * s, '#fff'); }
+  circle(x - 9 * s, y + 3 * s, 2.6 * s, 'rgba(255,120,170,.55)');
+  circle(x + 9 * s, y + 3 * s, 2.6 * s, 'rgba(255,120,170,.55)');
+  ctx.strokeStyle = '#5a2a48'; ctx.lineWidth = 1.4 * s; ctx.lineCap = 'round';
+  ctx.beginPath();
+  if (mood === 'grump'){ ctx.arc(x, y + 6 * s, 3 * s, Math.PI * 1.15, Math.PI * 1.85); }
+  else { ctx.arc(x, y + 1.5 * s, 3 * s, 0.15 * Math.PI, 0.85 * Math.PI); }
+  ctx.stroke();
+}
+
+/* ---------- background ---------- */
+function drawBg(){
+  const sky = SKIES[level - 1], night = level === 7 || level === 9;
+  const g = ctx.createLinearGradient(0, 0, 0, G);
+  g.addColorStop(0, sky[0]); g.addColorStop(1, sky[1]);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  if (night){
+    for (let i = 0; i < 40; i++){
+      const x = (i * 137) % W, y = (i * 59) % 220, a = 0.4 + 0.6 * Math.abs(Math.sin(t * 0.03 + i));
+      ctx.fillStyle = `rgba(255,255,255,${a})`; starPath(x, y, 3, 0);
+    }
+    circle(820, 80, 34, '#fff6d6'); circle(806, 70, 32, sky[0]);
+  } else {
+    circle(830, 80, 40, 'rgba(255,240,180,.6)'); circle(830, 80, 30, '#fff1b8');
+  }
+  if (level === 10){ // rainbow
+    const cols = ['#ffb3c6','#ffd6a5','#fdffb6','#caffbf','#9bf6ff','#bdb2ff'];
+    cols.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(480, 420, 300 - i * 12, Math.PI, 0); ctx.stroke(); });
+  }
+  // fluffy clouds
+  for (let i = 0; i < 5; i++){
+    const x = ((i * 260 - dist * 0.12) % (W + 260) + W + 260) % (W + 260) - 130, y = 60 + (i * 47) % 110;
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    [[0,0,26],[24,-10,30],[52,0,24],[26,8,26]].forEach(c => { ctx.beginPath(); ctx.arc(x + c[0], y + c[1], c[2], 0, 7); ctx.fill(); });
+  }
+  // hills
+  hills(dist * 0.25, 300, 60, night ? '#c5a7e6' : '#ffc4df', 0.006);
+  hills(dist * 0.5, 345, 40, night ? '#d9b8ee' : '#ffb0d3', 0.01);
+  // ground
+  ctx.fillStyle = night ? '#e7b6e3' : '#ff9fcb'; ctx.fillRect(0, G, W, H - G);
+  ctx.fillStyle = '#fff';
+  const off = dist % 40;
+  for (let x = -off; x < W + 40; x += 40){ ctx.beginPath(); ctx.arc(x + 20, G, 20, Math.PI, 0); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  for (let x = -off; x < W + 40; x += 40){ circle(x + 10, G + 35, 5, 'rgba(255,255,255,.45)'); circle(x + 30, G + 55, 4, 'rgba(255,255,255,.35)'); }
+}
+function hills(off, base, amp, col, freq){
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, G);
+  for (let x = 0; x <= W; x += 10) ctx.lineTo(x, base - Math.sin((x + off) * freq) * amp - Math.sin((x + off) * freq * 2.3) * amp * 0.3);
+  ctx.lineTo(W, G); ctx.closePath(); ctx.fill();
+}
+
+/* ---------- characters ---------- */
+function drawPlayer(){
+  const p = player;
+  if (inv > 0 && Math.floor(inv / 5) % 2 === 0) return;
+  const air = p.ground ? 0 : Math.max(-0.12, Math.min(0.12, -p.vy * 0.012));
+  const sy = p.sq + air, sx = 1 + (1 - p.sq) * 0.6 - air * 0.6;
+  ctx.save(); ctx.translate(p.x, p.y + R); ctx.scale(sx, sy);
+  // shadow handled outside
+  const g = ctx.createRadialGradient(-7, -R - 8, 4, 0, -R, R);
+  g.addColorStop(0, '#ffd6ea'); g.addColorStop(1, '#ff7fbf');
+  circle(0, -R, R, g);
+  circle(-8, -R - 9, 6, 'rgba(255,255,255,.75)');
+  // little bow
+  ctx.fillStyle = '#b28dff';
+  ctx.beginPath(); ctx.moveTo(6, -2 * R + 4); ctx.lineTo(-4, -2 * R - 6); ctx.lineTo(-4, -2 * R + 10); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(6, -2 * R + 4); ctx.lineTo(16, -2 * R - 6); ctx.lineTo(16, -2 * R + 10); ctx.fill();
+  circle(6, -2 * R + 3, 4, '#d4bfff');
+  face(3, -R + 2, 1.05, 'happy');
+  ctx.restore();
+}
+
+function drawObs(o){
+  ctx.save();
+  if (o.type === 'cupcake'){
+    const x = o.x, y = o.y;
+    ctx.fillStyle = '#cdb4ff';
+    ctx.beginPath(); ctx.moveTo(x + 4, y + 20); ctx.lineTo(x + o.w - 4, y + 20); ctx.lineTo(x + o.w - 9, y + o.h); ctx.lineTo(x + 9, y + o.h); ctx.fill();
+    ctx.strokeStyle = '#b39af0'; ctx.lineWidth = 2;
+    for (let i = 1; i < 5; i++){ ctx.beginPath(); ctx.moveTo(x + 4 + i * 7, y + 21); ctx.lineTo(x + 8 + i * 5.2, y + o.h - 1); ctx.stroke(); }
+    [[10,20,11],[21,14,13],[32,20,11]].forEach(c => circle(x + c[0], y + c[1], c[2], '#ffc0dd'));
+    circle(21, 0, 0, '#000');
+    circle(x + 21, y + 1, 5, '#ff5c8a'); circle(x + 19.5, y - 0.5, 1.6, '#fff');
+    ['#a8ecd6','#ffe27a','#9fd8ff'].forEach((c, i) => rrect(x + 10 + i * 9, y + 12 + (i % 2) * 5, 4, 2, 1, c));
+    face(x + 21, y + 32, 0.6, 'happy');
+  } else if (o.type === 'candy'){
+    for (let k = 0; k < 2; k++){
+      const x = o.x + k * 24, b = G, w = 26;
+      ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.moveTo(x, b); ctx.lineTo(x + w, b); ctx.lineTo(x + w / 2, b - o.h); ctx.fill();
+      ctx.fillStyle = '#ffb0d3'; ctx.beginPath(); ctx.moveTo(x + w * 0.2, b - o.h * 0.4); ctx.lineTo(x + w * 0.8, b - o.h * 0.4); ctx.lineTo(x + w / 2, b - o.h); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(x + w * 0.36, b - o.h * 0.72); ctx.lineTo(x + w * 0.64, b - o.h * 0.72); ctx.lineTo(x + w / 2, b - o.h); ctx.fill();
+    }
+  } else if (o.type === 'gift' || o.type === 'tower'){
+    const boxes = o.type === 'gift' ? [[o.y, o.h, '#a8ecd6', '#ff8fc7']] :
+      [[o.y + 50, 50, '#ffd1b3', '#b28dff'], [o.y, 50, '#cdb4ff', '#ff8fc7']];
+    boxes.forEach(([y, h, c, rib]) => {
+      rrect(o.x, y + 8, o.w, h - 8, 6, c);
+      rrect(o.x - 3, y + 6, o.w + 6, 12, 4, c); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(o.x - 3, y + 6, o.w + 6, 4);
+      ctx.fillStyle = rib; ctx.fillRect(o.x + o.w / 2 - 5, y + 6, 10, h - 6);
+      ctx.beginPath(); ctx.ellipse(o.x + o.w / 2 - 9, y + 3, 9, 6, -0.4, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(o.x + o.w / 2 + 9, y + 3, 9, 6, 0.4, 0, 7); ctx.fill();
+    });
+    face(o.x + o.w / 2 + (o.type === 'gift' ? 0 : 0), o.y + (o.type === 'gift' ? 38 : 30), 0.65, 'grump');
+  } else if (o.type === 'bee'){
+    const x = o.x, y = o.cy, flap = Math.sin(t * 0.8) * 4;
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.ellipse(x - 3, y - 15 - flap, 8, 11, -0.4, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + 7, y - 15 + flap, 8, 11, 0.4, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffe27a'; ctx.beginPath(); ctx.ellipse(x, y, 19, 15, 0, 0, 7); ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.ellipse(x, y, 19, 15, 0, 0, 7); ctx.clip();
+    ctx.fillStyle = '#8a5a7a'; ctx.fillRect(x + 2, y - 16, 5, 32); ctx.fillRect(x + 11, y - 16, 5, 32); ctx.restore();
+    face(x - 8, y, 0.6, 'happy');
+  } else if (o.type === 'cloud'){
+    const x = o.x, y = o.cy;
+    ctx.fillStyle = '#c9c0e0';
+    [[-20,4,16],[0,-6,22],[20,4,16],[0,8,18]].forEach(c => { ctx.beginPath(); ctx.arc(x + c[0], y + c[1], c[2], 0, 7); ctx.fill(); });
+    ctx.strokeStyle = '#5a2a48'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x - 11, y - 9); ctx.lineTo(x - 3, y - 5); ctx.moveTo(x + 11, y - 9); ctx.lineTo(x + 3, y - 5); ctx.stroke();
+    face(x, y + 2, 0.75, 'grump');
+    ctx.fillStyle = '#9fd8ff';
+    for (let i = 0; i < 3; i++){ const dy = (t * 2 + i * 14) % 36; ctx.beginPath(); ctx.ellipse(x - 12 + i * 12, y + 24 + dy, 2.5, 4, 0, 0, 7); ctx.fill(); }
+  } else if (o.type === 'ghost'){
+    const x = o.x, y = o.cy;
+    ctx.fillStyle = 'rgba(255,255,255,.95)';
+    ctx.beginPath(); ctx.arc(x, y - 2, 18, Math.PI, 0); ctx.lineTo(x + 18, y + 16);
+    for (let i = 0; i < 4; i++){ const xx = x + 18 - (i + 1) * 9; ctx.quadraticCurveTo(xx + 4.5, y + (i % 2 ? 22 : 10) + Math.sin(t * 0.2) * 2, xx, y + 16); }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#f0c9e0'; ctx.lineWidth = 2; ctx.stroke();
+    face(x - 2, y, 0.65, 'happy');
+  }
+  ctx.restore();
+}
+
+function drawFinish(){
+  const fx = player.x + (cfg.length - dist) + 40;
+  if (fx > W + 60) return;
+  ctx.fillStyle = '#fff'; rrect(fx - 3, G - 130, 6, 130, 3, '#fff');
+  ctx.fillStyle = '#ff8fc7';
+  const wave = Math.sin(t * 0.15) * 4;
+  ctx.beginPath(); ctx.moveTo(fx + 3, G - 128); ctx.quadraticCurveTo(fx + 30, G - 120 + wave, fx + 58, G - 112); ctx.lineTo(fx + 3, G - 92); ctx.fill();
+  ctx.fillStyle = '#fff'; heartPath(fx + 22, G - 118, 14);
+  if (level === 10){ // castle
+    const cx = fx + 80;
+    rrect(cx, G - 110, 110, 110, 8, '#ffd1ec'); rrect(cx - 20, G - 150, 36, 150, 6, '#e8d4ff'); rrect(cx + 94, G - 150, 36, 150, 6, '#e8d4ff');
+    ctx.fillStyle = '#ff8fc7';
+    [[cx - 2, G - 150], [cx + 112, G - 150]].forEach(([x, y]) => { ctx.beginPath(); ctx.moveTo(x - 22, y); ctx.lineTo(x + 22, y); ctx.lineTo(x, y - 40); ctx.fill(); });
+    rrect(cx + 38, G - 50, 34, 50, 16, '#c79bff');
+  }
+}
+
+function drawHUD(){
+  rrect(14, 12, 300, 40, 20, 'rgba(255,255,255,.85)');
+  ctx.fillStyle = '#7a3b63'; ctx.font = '600 18px Fredoka, sans-serif'; ctx.textBaseline = 'middle';
+  ctx.fillText(`Level ${level} · ${NAMES[level-1]}`, 30, 33);
+  rrect(W - 210, 12, 196, 40, 20, 'rgba(255,255,255,.85)');
+  for (let i = 0; i < 3; i++){ ctx.fillStyle = i < hearts ? '#ff6fae' : '#f1dbe6'; heartPath(W - 190 + i * 28, 22, 20); }
+  ctx.fillStyle = '#f5c400'; starPath(W - 92, 32, 10, 0);
+  ctx.fillStyle = '#7a3b63'; ctx.fillText(score, W - 76, 33);
+  // progress
+  const px = 340, pw = W - 570, prog = Math.min(1, dist / cfg.length);
+  rrect(px, 24, pw, 16, 8, 'rgba(255,255,255,.85)');
+  rrect(px + 2, 26, Math.max(12, (pw - 4) * prog), 12, 6, '#ff8fc7');
+  circle(px + 8 + (pw - 16) * prog, 32, 9, '#ff7fbf'); circle(px + 6 + (pw - 16) * prog, 30, 3, '#ffd6ea');
+  ctx.font = '16px sans-serif'; ctx.fillText('🚩', px + pw + 4, 33);
+}
+
+function drawParts(){
+  for (const q of parts){
+    ctx.globalAlpha = Math.min(1, q.life / 25); ctx.fillStyle = q.col;
+    if (q.kind === 'heart') heartPath(q.x, q.y, q.size);
+    else if (q.kind === 'star') starPath(q.x, q.y, q.size, 0);
+    else circle(q.x, q.y, q.size, q.col);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw(){
+  ctx.save();
+  if (shake > 0) ctx.translate(rand(-shake, shake) * 0.5, rand(-shake, shake) * 0.5);
+  drawBg();
+  drawFinish();
+  for (const s of stars){ ctx.fillStyle = '#ffe27a'; starPath(s.x, s.y + Math.sin(t * 0.1 + s.spin) * 3, 13, Math.sin(s.spin) * 0.3);
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; circle(s.x - 3, s.y - 4, 2.5, 'rgba(255,255,255,.8)'); }
+  for (const o of obs) drawObs(o);
+  // player shadow
+  const h = (G - R - player.y);
+  ctx.fillStyle = `rgba(200,80,140,${0.25 - Math.min(0.18, h / 900)})`;
+  ctx.beginPath(); ctx.ellipse(player.x, G + 3, R * (1 - Math.min(0.5, h / 400)), 5, 0, 0, 7); ctx.fill();
+  drawPlayer();
+  drawParts();
+  if (state !== 'menu') drawHUD();
+  ctx.restore();
+}
+
+/* ---------- loop ---------- */
+let last = 0;
+function loop(ts){
+  const f = last ? Math.min(2.5, (ts - last) / 16.667) : 1; last = ts;
+  if (state === 'play') update(f);
+  else if (state === 'menu'){ t += f; dist += 2 * f; if (dist > 1e6) dist = 0; }
+  else t += f * 0.3;
+  updateParts(f);
+  draw();
+  requestAnimationFrame(loop);
+}
+resetLevel(); buildLevels(); show('menu');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
