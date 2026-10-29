@@ -9,7 +9,7 @@
   :root{--pink:#ff8fc7;--pink-d:#e9579f;--lav:#cdb4ff;--mint:#a8ecd6;--ink:#7a3b63}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-    background:radial-gradient(circle at 20% 20%,#ffe3f1,#ffd1e8 45%,#e9d8ff);
+    background:linear-gradient(135deg,#ffd6e8 0%,#ffe9cc 20%,#fff7c2 38%,#d4f5e2 56%,#d3ecff 74%,#e6d9ff 100%);
     font-family:Fredoka,"Comic Sans MS","Trebuchet MS",system-ui,sans-serif;color:var(--ink);padding:16px}
   #wrap{position:relative;width:100%;max-width:960px;aspect-ratio:2/1;border-radius:26px;overflow:hidden;
     box-shadow:0 14px 40px rgba(233,87,159,.3);border:5px solid #fff;background:#ffe3f1}
@@ -31,6 +31,13 @@
   button.alt{background:var(--lav);box-shadow:0 4px 0 #a48ae6}
   .levels{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:8px 0}
   .levels button{margin:0;padding:6px 0;font-size:16px}
+  .levels button:nth-child(5n+1){background:#ff9fc8;box-shadow:0 4px 0 #e9579f}
+  .levels button:nth-child(5n+2){background:#ffbe85;box-shadow:0 4px 0 #f0954a}
+  .levels button:nth-child(5n+3){background:#7fd8ad;box-shadow:0 4px 0 #4fb985}
+  .levels button:nth-child(5n+4){background:#86c5f5;box-shadow:0 4px 0 #519fdb}
+  .levels button:nth-child(5n+5){background:#b79bff;box-shadow:0 4px 0 #8c6ae6}
+  #playBtn{background:linear-gradient(90deg,#ff9fc8,#ffbe85,#f5d65c,#7fd8ad,#86c5f5,#b79bff);box-shadow:0 4px 0 #c99ad9;text-shadow:0 1px 2px rgba(122,59,99,.35)}
+  h1{background:linear-gradient(90deg,#ff6fae,#ff9d5c,#e6b800,#3fbf8a,#4fa3e8,#9b72ff);-webkit-background-clip:text;background-clip:text;color:transparent}
   .levels button.locked{background:#f1e9ee;color:#c9b7c2;box-shadow:0 4px 0 #e2d4dc;cursor:not-allowed}
   .big{font-size:42px;margin:0}
 </style>
@@ -41,7 +48,7 @@
 
   <div id="menu" class="screen">
     <div class="card">
-      <h1>🎀 Bubble Bounce 🎀</h1>
+      <div style="font-size:clamp(24px,5vw,42px);line-height:1.15">🎀 <h1 style="display:inline">Bubble Bounce</h1> 🎀</div>
       <p class="sub">Help Bubbles the bouncy ball hop home to Rainbow Castle!</p>
       <ul class="rules">
         <li>Press <kbd>Space</kbd> (or tap / click) to jump. <b>Hold it longer to jump higher!</b></li>
@@ -106,10 +113,19 @@ const POOLS = [
   ['cupcake'], ['cupcake','candy'], ['cupcake','candy','gift'], ['cupcake','candy','gift','bee'],
   ['candy','gift','bee','cloud'], ['cupcake','gift','bee','cloud','tower'],
   ['candy','gift','bee','cloud','tower','ghost'], ALL, ALL, ALL];
-const SKIES = [
-  ['#ffd6ec','#fff3f9'],['#ffcfe6','#fff0f7'],['#f9d4ff','#fff1fb'],['#ffe1c9','#fff6ec'],
-  ['#d7e8ff','#fff0f8'],['#ffc8dd','#ffe9f2'],['#b9a3e8','#f2c8e8'],['#ffc2e0','#ffeaf4'],
-  ['#8f7cd6','#e3b6e6'],['#ffd1ec','#d9f3ff']];
+const PASTELS = ['#ffb3d1','#ffd6a5','#fdf3a0','#b8f0c8','#a8e6f0','#bfd3ff','#d9c2ff'];
+const THEMES = [
+  { sky:['#ffd6ec','#fff3f9'], h1:'#ffc4df', h2:'#ffb0d3', ground:'#ff9fcb', ball:['#ffd6ea','#ff7fbf'], bow:'#b28dff' }, // pink
+  { sky:['#d4f5ea','#f3fffb'], h1:'#b5ead7', h2:'#9fe0c9', ground:'#86d6b9', ball:['#fff3c4','#ffc94d'], bow:'#ff8fc7' }, // mint
+  { sky:['#e6dcff','#f8f4ff'], h1:'#d5c6ff', h2:'#c3afff', ground:'#b49cf5', ball:['#d6f5ff','#6fc6ff'], bow:'#ff8fc7' }, // lavender
+  { sky:['#ffe4cc','#fff7ef'], h1:'#ffd3b0', h2:'#ffc196', ground:'#ffad85', ball:['#e0ffe9','#6fdca0'], bow:'#b28dff' }, // peach
+  { sky:['#d6ecff','#f4faff'], h1:'#bfe0ff', h2:'#a6d2ff', ground:'#8cc2f5', ball:['#ffd6ea','#ff7fbf'], bow:'#ffd84d' }, // baby blue
+  { sky:['#fff6c7','#fffdf0'], h1:'#ffeea0', h2:'#ffe27a', ground:'#f5c95a', ball:['#efe4ff','#b08bff'], bow:'#ff8fc7' }, // lemon
+  { sky:['#b9a3e8','#f2c8e8'], h1:'#c5a7e6', h2:'#d9b8ee', ground:'#e7b6e3', ball:['#d6fff2','#5edcb6'], bow:'#ff8fc7', night:true }, // spooky
+  { sky:['#ffd1dc','#e9fff5'], h1:'#ffc2cf', h2:'#b8ecd6', ground:'#9fe3c6', ball:['#fff0d6','#ffa86b'], bow:'#b28dff' }, // strawberry-mint
+  { sky:['#8f7cd6','#e3b6e6'], h1:'#a99be6', h2:'#c7b0ee', ground:'#d8b4f0', ball:['#fff6c7','#ffd23f'], bow:'#ff8fc7', night:true }, // starry
+  { sky:['#ffd1ec','#d9f3ff'], h1:'#e8d4ff', h2:'#c9f0e0', ground:'rainbow', ball:['#ffd6ea','#ff7fbf'], bow:'#b28dff' }  // rainbow
+];
 
 function levelCfg(n){
   const i = n - 1;
@@ -339,7 +355,7 @@ function face(x, y, s, mood){
 
 /* ---------- background ---------- */
 function drawBg(){
-  const sky = SKIES[level - 1], night = level === 7 || level === 9;
+  const th = THEMES[level - 1], sky = th.sky, night = !!th.night;
   const g = ctx.createLinearGradient(0, 0, 0, G);
   g.addColorStop(0, sky[0]); g.addColorStop(1, sky[1]);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -360,19 +376,33 @@ function drawBg(){
   // fluffy clouds
   for (let i = 0; i < 5; i++){
     const x = ((i * 260 - dist * 0.12) % (W + 260) + W + 260) % (W + 260) - 130, y = 60 + (i * 47) % 110;
-    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.fillStyle = i % 2 ? 'rgba(255,255,255,.88)' : PASTELS[(i * 2 + level) % PASTELS.length] + 'cc';
     [[0,0,26],[24,-10,30],[52,0,24],[26,8,26]].forEach(c => { ctx.beginPath(); ctx.arc(x + c[0], y + c[1], c[2], 0, 7); ctx.fill(); });
   }
   // hills
-  hills(dist * 0.25, 300, 60, night ? '#c5a7e6' : '#ffc4df', 0.006);
-  hills(dist * 0.5, 345, 40, night ? '#d9b8ee' : '#ffb0d3', 0.01);
+  hills(dist * 0.25, 300, 60, th.h1, 0.006);
+  hills(dist * 0.5, 345, 40, th.h2, 0.01);
   // ground
-  ctx.fillStyle = night ? '#e7b6e3' : '#ff9fcb'; ctx.fillRect(0, G, W, H - G);
-  ctx.fillStyle = '#fff';
-  const off = dist % 40;
-  for (let x = -off; x < W + 40; x += 40){ ctx.beginPath(); ctx.arc(x + 20, G, 20, Math.PI, 0); ctx.fill(); }
-  ctx.fillStyle = 'rgba(255,255,255,.45)';
-  for (let x = -off; x < W + 40; x += 40){ circle(x + 10, G + 35, 5, 'rgba(255,255,255,.45)'); circle(x + 30, G + 55, 4, 'rgba(255,255,255,.35)'); }
+  if (th.ground === 'rainbow'){
+    const bh = (H - G) / PASTELS.length;
+    PASTELS.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, G + i * bh, W, bh + 1); });
+  } else { ctx.fillStyle = th.ground; ctx.fillRect(0, G, W, H - G); }
+  // multicolor pastel scallops along the ground edge
+  const off = dist % 40, startIdx = Math.floor(dist / 40);
+  for (let x = -off, k = 0; x < W + 40; x += 40, k++){
+    circle(x + 20, G, 20, PASTELS[(startIdx + k) % PASTELS.length]);
+    circle(x + 20, G, 13, 'rgba(255,255,255,.55)');
+    ctx.fillStyle = PASTELS[(startIdx + k) % PASTELS.length];
+    ctx.fillRect(x, G, 40, 4);
+  }
+  // rainbow sprinkles
+  for (let x = -off, k = 0; x < W + 40; x += 40, k++){
+    const n = startIdx + k;
+    ctx.save(); ctx.translate(x + 12, G + 32); ctx.rotate((n % 5) * 0.6);
+    rrect(-6, -2, 12, 4, 2, PASTELS[(n * 3) % PASTELS.length]); ctx.restore();
+    ctx.save(); ctx.translate(x + 30, G + 54); ctx.rotate((n % 7) * 0.5);
+    rrect(-5, -2, 10, 4, 2, PASTELS[(n * 5 + 2) % PASTELS.length]); ctx.restore();
+  }
 }
 function hills(off, base, amp, col, freq){
   ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, G);
@@ -388,15 +418,16 @@ function drawPlayer(){
   const sy = p.sq + air, sx = 1 + (1 - p.sq) * 0.6 - air * 0.6;
   ctx.save(); ctx.translate(p.x, p.y + R); ctx.scale(sx, sy);
   // shadow handled outside
+  const th = THEMES[level - 1];
   const g = ctx.createRadialGradient(-7, -R - 8, 4, 0, -R, R);
-  g.addColorStop(0, '#ffd6ea'); g.addColorStop(1, '#ff7fbf');
+  g.addColorStop(0, th.ball[0]); g.addColorStop(1, th.ball[1]);
   circle(0, -R, R, g);
   circle(-8, -R - 9, 6, 'rgba(255,255,255,.75)');
   // little bow
-  ctx.fillStyle = '#b28dff';
+  ctx.fillStyle = th.bow;
   ctx.beginPath(); ctx.moveTo(6, -2 * R + 4); ctx.lineTo(-4, -2 * R - 6); ctx.lineTo(-4, -2 * R + 10); ctx.fill();
   ctx.beginPath(); ctx.moveTo(6, -2 * R + 4); ctx.lineTo(16, -2 * R - 6); ctx.lineTo(16, -2 * R + 10); ctx.fill();
-  circle(6, -2 * R + 3, 4, '#d4bfff');
+  circle(6, -2 * R + 3, 4, '#fff');
   face(3, -R + 2, 1.05, 'happy');
   ctx.restore();
 }
@@ -490,8 +521,10 @@ function drawHUD(){
   // progress
   const px = 340, pw = W - 570, prog = Math.min(1, dist / cfg.length);
   rrect(px, 24, pw, 16, 8, 'rgba(255,255,255,.85)');
-  rrect(px + 2, 26, Math.max(12, (pw - 4) * prog), 12, 6, '#ff8fc7');
-  circle(px + 8 + (pw - 16) * prog, 32, 9, '#ff7fbf'); circle(px + 6 + (pw - 16) * prog, 30, 3, '#ffd6ea');
+  const pg = ctx.createLinearGradient(px, 0, px + pw, 0);
+  PASTELS.forEach((c, i) => pg.addColorStop(i / (PASTELS.length - 1), c));
+  rrect(px + 2, 26, Math.max(12, (pw - 4) * prog), 12, 6, pg);
+  circle(px + 8 + (pw - 16) * prog, 32, 9, THEMES[level - 1].ball[1]); circle(px + 6 + (pw - 16) * prog, 30, 3, '#ffd6ea');
   ctx.font = '16px sans-serif'; ctx.fillText('🚩', px + pw + 4, 33);
 }
 
@@ -528,7 +561,7 @@ let last = 0;
 function loop(ts){
   const f = last ? Math.min(2.5, (ts - last) / 16.667) : 1; last = ts;
   if (state === 'play') update(f);
-  else if (state === 'menu'){ t += f; dist += 2 * f; if (dist > 1e6) dist = 0; }
+  else if (state === 'menu'){ t += f; dist += 2 * f; if (dist > 1e6) dist = 0; level = 1 + Math.floor(t / 240) % 10; }
   else t += f * 0.3;
   updateParts(f);
   draw();
